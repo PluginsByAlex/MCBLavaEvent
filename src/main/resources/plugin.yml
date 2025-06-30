@@ -1,0 +1,25 @@
+name: MCBLavaEvent
+version: ${project.version}
+main: me.mcb.lavaevent.MCBLavaEventPlugin
+api-version: '1.21'
+description: A lava rising event plugin for Minecraft
+author: MCB
+website: https://github.com/your-username/MCBLavaEvent
+
+depend: []
+softdepend: [PlaceholderAPI]
+
+commands:
+  lavaevent:
+    description: Main command for lava event management
+    usage: /lavaevent <start|stop|reload|setup>
+    permission: lavaevent.admin
+    aliases: [le, lava]
+
+permissions:
+  lavaevent.admin:
+    description: Allows access to all lava event commands
+    default: op
+  lavaevent.bypass:
+    description: Bypass lava damage during events
+    default: op 

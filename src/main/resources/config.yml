@@ -1,0 +1,69 @@
+# MCBLavaEvent Configuration
+# Plugin for Minecraft 1.21.4+
+
+game:
+  # World where the lava event takes place
+  world: "world"
+  
+  # Delay before the event starts (in seconds)
+  start-delay: 30
+  
+  # How fast the lava rises (blocks per second)
+  lava-rise-speed: 0.5
+  
+  # Maximum height the lava can reach
+  max-lava-height: 200
+  
+  # How fast the world border shrinks (blocks per second)
+  border-shrink-speed: 0.1
+  
+  # Grace period before PvP is enabled (in seconds)
+  grace-period: 60
+  
+  # Starting lava level (Y coordinate)
+  starting-lava-level: -64
+  
+  # World border settings
+  border:
+    # Starting size of the world border
+    starting-size: 1000
+    # Final size of the world border
+    final-size: 50
+    # Center coordinates for the border
+    center-x: 0
+    center-z: 0
+  
+  # Random events configuration
+  random-events:
+    enabled: true
+    # Chance for random events to occur (0.0 - 1.0)
+    chance: 0.3
+    # Interval between event checks (in seconds)
+    interval: 120
+    
+    events:
+      tnt-rain:
+        enabled: true
+        duration: 10
+      mob-spawn:
+        enabled: true
+        count: 5
+      lightning-storm:
+        enabled: true
+        duration: 15
+
+# Spectator settings
+spectator:
+  # Allow spectators to fly
+  allow-flight: true
+  # Teleport spectators to a safe location
+  safe-teleport: true
+  # Height to teleport spectators to
+  spectator-height: 250
+
+# Debug settings
+debug:
+  # Enable debug messages
+  enabled: false
+  # Show lava level updates
+  show-lava-updates: false 

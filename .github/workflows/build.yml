@@ -1,0 +1,112 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Build with Maven
+      run: mvn clean compile package
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: MCBLavaEvent-JAR
+        path: target/MCBLavaEvent-*.jar
+        
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Build with Maven
+      run: mvn clean compile package
+      
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: MCBLavaEvent v${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## MCBLavaEvent v${{ steps.get_version.outputs.VERSION }}
+          
+          ### Features
+          - 🌋 Lava slowly rises over time forcing players to higher ground
+          - 🏆 Last player standing wins the event
+          - 🔄 World border gradually shrinks creating additional pressure
+          - ⚙️ Fully configurable game settings and timing
+          - 🎮 Random events: TNT rain, hostile mob spawns, lightning storms
+          - 💬 Beautiful MiniMessage formatting with hex colors and gradients
+          - 🌐 PlaceholderAPI integration with 8 different placeholders
+          - 👤 Eliminated players become spectators with flight enabled
+          - 🛡️ Grace period with PvP protection at event start
+          - 🎯 Comprehensive admin commands and permissions
+          
+          ### Installation
+          1. Download the JAR file below
+          2. Place it in your server's `plugins` folder
+          3. Restart your server
+          4. Configure the plugin in `plugins/MCBLavaEvent/config.yml`
+          5. Use `/lavaevent setup <x> <z> <radius>` to set up your event area
+          
+          ### Commands
+          - `/lavaevent start` - Start a lava event
+          - `/lavaevent stop` - Stop the current event
+          - `/lavaevent reload` - Reload configuration files
+          - `/lavaevent setup <x> <z> <radius>` - Setup event area
+          
+          ### Permissions
+          - `lavaevent.admin` - Access to all commands (default: op)
+          - `lavaevent.bypass` - Bypass lava damage during events (default: op)
+          
+          ### PlaceholderAPI Integration
+          - `%lavaevent_active%` - Event active status (true/false)
+          - `%lavaevent_grace_period%` - Grace period active (true/false)
+          - `%lavaevent_lava_level%` - Current lava level
+          - `%lavaevent_alive_count%` - Number of players alive
+          - `%lavaevent_is_alive%` - If player is alive (true/false)
+          - `%lavaevent_is_spectator%` - If player is spectator (true/false)
+          - `%lavaevent_world%` - Event world name
+          - `%lavaevent_status%` - Event status (inactive/grace_period/active)
+        files: target/MCBLavaEvent-*.jar
+        draft: false
+        prerelease: false 

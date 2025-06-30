@@ -1,0 +1,79 @@
+# MCBLavaEvent Messages
+# Supports MiniMessage format with hex colors and formatting
+# Use <#RRGGBB> for hex colors, <bold>, <italic>, etc. for formatting
+
+prefix: "<gradient:#FF6B35:#F7931E><bold>LAVA EVENT</bold></gradient> <dark_gray>»</dark_gray> "
+
+# Event messages
+event:
+  starting: "<green>The lava event is starting in <yellow>{time}</yellow> seconds!"
+  started: "<#FF4500><bold>🌋 THE LAVA IS RISING! 🌋</bold></#FF4500>"
+  stopped: "<red>The lava event has been stopped by an administrator."
+  won: "<gold><bold>🏆 {player} is the last player standing! 🏆</bold></gold>"
+  no-winner: "<yellow>The lava event ended with no winner!"
+  
+  # Countdown messages
+  countdown:
+    title: "<#FF4500><bold>LAVA RISING</bold></#FF4500>"
+    subtitle: "<yellow>Starting in {time} seconds</yellow>"
+    
+  # Grace period
+  grace-period:
+    start: "<green>Grace period active! PvP will be enabled in <yellow>{time}</yellow> seconds."
+    end: "<red><bold>⚔ PVP IS NOW ENABLED! ⚔</bold></red>"
+
+# Player messages
+player:
+  eliminated: "<red>💀 <bold>{player}</bold> has been eliminated by the lava!"
+  spectator-mode: "<gray>You are now in spectator mode. Watch the remaining players!"
+  joined-late: "<yellow>You joined while an event is active. You are now in spectator mode."
+  
+  # Status messages
+  status:
+    alive: "<green>Players alive: <white>{count}</white></green>"
+    lava-level: "<#FF4500>Current lava level: <white>Y {level}</white></#FF4500>"
+
+# Command messages
+commands:
+  no-permission: "<red>You don't have permission to use this command!"
+  reload-success: "<green>Configuration reloaded successfully!"
+  
+  # Event commands
+  start:
+    success: "<green>Lava event started successfully!"
+    already-running: "<red>A lava event is already running!"
+    no-world: "<red>The configured world '{world}' doesn't exist!"
+    
+  stop:
+    success: "<green>Lava event stopped successfully!"
+    not-running: "<red>No lava event is currently running!"
+    
+  setup:
+    success: "<green>Event area has been set up successfully!"
+    usage: "<yellow>Usage: /lavaevent setup <center-x> <center-z> <radius>"
+
+# Random events
+random-events:
+  tnt-rain:
+    start: "<red><bold>💣 TNT RAIN INCOMING! 💣</bold></red>"
+    warning: "<yellow>Take cover! TNT is falling from the sky!"
+    
+  mob-spawn:
+    start: "<dark_red><bold>👹 HOSTILE MOBS HAVE SPAWNED! 👹</bold></dark_red>"
+    
+  lightning-storm:
+    start: "<blue><bold>⚡ LIGHTNING STORM! ⚡</bold></blue>"
+    warning: "<yellow>Stay away from high places!"
+
+# Error messages
+errors:
+  world-not-found: "<red>World '{world}' not found!"
+  player-not-found: "<red>Player '{player}' not found!"
+  invalid-number: "<red>Invalid number: {input}"
+  command-error: "<red>An error occurred while executing the command."
+
+# Admin messages
+admin:
+  event-force-stopped: "<red>Event was force-stopped due to an error."
+  debug-enabled: "<green>Debug mode enabled."
+  debug-disabled: "<red>Debug mode disabled." 
