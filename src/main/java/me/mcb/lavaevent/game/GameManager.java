@@ -9,6 +9,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GameManager {
     
@@ -19,8 +20,11 @@ public class GameManager {
     private boolean gracePeriodActive = false;
     private World eventWorld;
     private double currentLavaLevel;
-    private final Set<UUID> alivePlayers = new HashSet<>();
-    private final Set<UUID> spectators = new HashSet<>();
+    private final Set<UUID> alivePlayers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> spectators = ConcurrentHashMap.newKeySet();
+    
+    // Water bucket usage tracking
+    private final Map<UUID, Integer> waterBucketUsage = new ConcurrentHashMap<>();
     
     private BukkitTask lavaRiseTask;
     private BukkitTask borderShrinkTask;
@@ -159,6 +163,8 @@ public class GameManager {
     
     private void startLavaRising() {
         lavaRiseTask = new BukkitRunnable() {
+            private int lastBroadcastLevel = -999;
+            
             @Override
             public void run() {
                 if (!eventActive) {
@@ -173,9 +179,13 @@ public class GameManager {
                     currentLavaLevel += riseSpeed;
                     placeLavaBlocks();
                     
-                    // Broadcast lava level every 10 blocks
-                    if ((int) currentLavaLevel % 10 == 0) {
-                        Map<String, String> placeholders = MessageUtils.createPlaceholders("level", String.valueOf((int) currentLavaLevel));
+                    // Broadcast lava level at configured intervals
+                    int broadcastInterval = plugin.getConfigManager().getLavaLevelBroadcastInterval();
+                    int currentLevel = (int) Math.floor(currentLavaLevel);
+                    
+                    if (currentLevel >= lastBroadcastLevel + broadcastInterval) {
+                        lastBroadcastLevel = currentLevel;
+                        Map<String, String> placeholders = MessageUtils.createPlaceholders("level", String.valueOf(currentLevel));
                         messageUtils.broadcast("player.status.lava-level", placeholders);
                     }
                 }
@@ -187,19 +197,21 @@ public class GameManager {
         WorldBorder border = eventWorld.getWorldBorder();
         Location center = border.getCenter();
         double borderSize = border.getSize();
-        int radius = (int) (borderSize / 2);
+        int halfSize = (int) (borderSize / 2);
         
         int lavaY = (int) Math.floor(currentLavaLevel);
         
-        for (int x = (int) center.getX() - radius; x <= (int) center.getX() + radius; x++) {
-            for (int z = (int) center.getZ() - radius; z <= (int) center.getZ() + radius; z++) {
-                // Check if within circular border
-                double distance = Math.sqrt(Math.pow(x - center.getX(), 2) + Math.pow(z - center.getZ(), 2));
-                if (distance <= radius) {
-                    Block block = eventWorld.getBlockAt(x, lavaY, z);
-                    if (block.getType() == Material.AIR || block.getType() == Material.WATER) {
-                        block.setType(Material.LAVA);
-                    }
+        // Place lava in a square pattern covering the entire world border area
+        int minX = (int) center.getX() - halfSize;
+        int maxX = (int) center.getX() + halfSize;
+        int minZ = (int) center.getZ() - halfSize;
+        int maxZ = (int) center.getZ() + halfSize;
+        
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                Block block = eventWorld.getBlockAt(x, lavaY, z);
+                if (block.getType() == Material.AIR || block.getType() == Material.WATER) {
+                    block.setType(Material.LAVA);
                 }
             }
         }
@@ -214,28 +226,20 @@ public class GameManager {
                     return;
                 }
                 
-                Iterator<UUID> iterator = alivePlayers.iterator();
-                while (iterator.hasNext()) {
-                    UUID playerId = iterator.next();
+                // Create a copy of the set to avoid concurrent modification
+                Set<UUID> playersToCheck = new HashSet<>(alivePlayers);
+                
+                for (UUID playerId : playersToCheck) {
                     Player player = Bukkit.getPlayer(playerId);
                     
                     if (player == null || !player.isOnline()) {
-                        iterator.remove();
+                        // Safely remove disconnected players
+                        alivePlayers.remove(playerId);
                         continue;
                     }
                     
-                    // Check if player is in lava or below lava level
-                    Location loc = player.getLocation();
-                    if (loc.getY() <= currentLavaLevel || 
-                        loc.getBlock().getType() == Material.LAVA ||
-                        player.getFireTicks() > 0) {
-                        
-                        // Check for bypass permission
-                        if (!player.hasPermission("lavaevent.bypass")) {
-                            eliminatePlayer(player);
-                            iterator.remove();
-                        }
-                    }
+                    // Only check for disconnected players or those with bypass permission
+                    // Death handling is now done in PlayerListener
                 }
                 
                 // Check win condition
@@ -249,7 +253,7 @@ public class GameManager {
                     messageUtils.broadcast("player.status.alive", placeholders);
                 }
             }
-        }.runTaskTimer(plugin, 0L, 10L); // Check every 0.5 seconds
+        }.runTaskTimer(plugin, 0L, 20L); // Check every second
     }
     
     private void startRandomEvents() {
@@ -275,9 +279,6 @@ public class GameManager {
         
         alivePlayers.remove(player.getUniqueId());
         spectators.add(player.getUniqueId());
-        
-        // Set to spectator mode
-        player.setGameMode(GameMode.SPECTATOR);
         
         // Teleport to safe location
         if (plugin.getConfigManager().getConfig().getBoolean("spectator.safe-teleport", true)) {
@@ -338,6 +339,7 @@ public class GameManager {
         // Clear collections
         alivePlayers.clear();
         spectators.clear();
+        clearWaterBucketUsage();
         
         messageUtils.broadcastRaw("event.stopped");
     }
@@ -347,6 +349,9 @@ public class GameManager {
             UUID winnerId = alivePlayers.iterator().next();
             Player winner = Bukkit.getPlayer(winnerId);
             if (winner != null) {
+                // Play win effects
+                playWinEffects(winner);
+                
                 Map<String, String> placeholders = MessageUtils.createPlaceholders("player", winner.getName());
                 messageUtils.broadcastRaw("event.won", placeholders);
             }
@@ -355,6 +360,62 @@ public class GameManager {
         }
         
         stopEvent();
+    }
+    
+    private void playWinEffects(Player winner) {
+        Location loc = winner.getLocation();
+        World world = loc.getWorld();
+        
+        // Fireworks effect
+        if (plugin.getConfigManager().getConfig().getBoolean("effects.win-fireworks", true)) {
+            for (int i = 0; i < 5; i++) {
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        spawnFirework(loc.clone().add(
+                            (Math.random() - 0.5) * 10,
+                            Math.random() * 10,
+                            (Math.random() - 0.5) * 10
+                        ));
+                    }
+                }.runTaskLater(plugin, i * 10L);
+            }
+        }
+        
+        // Win sound for all players
+        String soundName = plugin.getConfigManager().getConfig().getString("effects.win-sound", "UI_TOAST_CHALLENGE_COMPLETE");
+        try {
+            Sound sound = Sound.valueOf(soundName);
+            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                if (onlinePlayer.getWorld().equals(world)) {
+                    onlinePlayer.playSound(onlinePlayer.getLocation(), sound, 1.0f, 1.0f);
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Invalid win sound: " + soundName);
+        }
+        
+        // Particles around winner
+        world.spawnParticle(Particle.FIREWORK, loc, 50, 2, 2, 2, 0.1);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 30, 1, 1, 1, 0.1);
+    }
+    
+    private void spawnFirework(Location location) {
+        org.bukkit.entity.Firework firework = location.getWorld().spawn(location, org.bukkit.entity.Firework.class);
+        org.bukkit.inventory.meta.FireworkMeta meta = firework.getFireworkMeta();
+        
+        // Create random firework effect
+        org.bukkit.FireworkEffect effect = org.bukkit.FireworkEffect.builder()
+            .withColor(Color.YELLOW, Color.ORANGE, Color.RED)
+            .withFade(Color.WHITE)
+            .with(org.bukkit.FireworkEffect.Type.BALL_LARGE)
+            .withFlicker()
+            .withTrail()
+            .build();
+            
+        meta.addEffect(effect);
+        meta.setPower(1);
+        firework.setFireworkMeta(meta);
     }
     
     // Getters
@@ -384,5 +445,72 @@ public class GameManager {
     
     public World getEventWorld() {
         return eventWorld;
+    }
+    
+    // Water bucket usage methods
+    public boolean canUseWaterBucket(UUID playerId) {
+        if (!eventActive) {
+            return true; // Allow water bucket usage when event is not active
+        }
+        
+        // Check if water buckets are disabled during the event
+        if (plugin.getConfigManager().areWaterBucketsDisabled()) {
+            return false;
+        }
+        
+        int maxUses = plugin.getConfigManager().getMaxWaterBucketsPerPlayer();
+        if (maxUses == -1) {
+            return true; // Unlimited usage
+        }
+        
+        int currentUsage = waterBucketUsage.getOrDefault(playerId, 0);
+        return currentUsage < maxUses;
+    }
+    
+    public void recordWaterBucketUse(UUID playerId) {
+        if (!eventActive) {
+            return; // Don't track usage when event is not active
+        }
+        
+        int currentUsage = waterBucketUsage.getOrDefault(playerId, 0);
+        waterBucketUsage.put(playerId, currentUsage + 1);
+        
+        // Show usage message if enabled
+        if (plugin.getConfigManager().showWaterBucketUsageMessages()) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                int maxUses = plugin.getConfigManager().getMaxWaterBucketsPerPlayer();
+                int remaining = maxUses == -1 ? -1 : maxUses - (currentUsage + 1);
+                
+                Map<String, String> placeholders = new HashMap<>();
+                placeholders.put("used", String.valueOf(currentUsage + 1));
+                placeholders.put("max", maxUses == -1 ? "∞" : String.valueOf(maxUses));
+                placeholders.put("remaining", remaining == -1 ? "∞" : String.valueOf(Math.max(0, remaining)));
+                
+                messageUtils.sendMessage(player, "player.water-bucket.used", placeholders);
+                
+                if (remaining == 0) {
+                    messageUtils.sendMessage(player, "player.water-bucket.limit-reached");
+                }
+            }
+        }
+    }
+    
+    public int getWaterBucketUsage(UUID playerId) {
+        return waterBucketUsage.getOrDefault(playerId, 0);
+    }
+    
+    public int getRemainingWaterBuckets(UUID playerId) {
+        int maxUses = plugin.getConfigManager().getMaxWaterBucketsPerPlayer();
+        if (maxUses == -1) {
+            return -1; // Unlimited
+        }
+        
+        int currentUsage = waterBucketUsage.getOrDefault(playerId, 0);
+        return Math.max(0, maxUses - currentUsage);
+    }
+    
+    private void clearWaterBucketUsage() {
+        waterBucketUsage.clear();
     }
 } 

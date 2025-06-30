@@ -69,6 +69,22 @@ public class LavaEventPlaceholders extends PlaceholderExpansion {
                     return "active";
                 }
                 
+            case "waterbucket_used":
+                if (player == null) return "0";
+                return String.valueOf(plugin.getGameManager().getWaterBucketUsage(player.getUniqueId()));
+                
+            case "waterbucket_remaining":
+                if (player == null) return "0";
+                int remaining = plugin.getGameManager().getRemainingWaterBuckets(player.getUniqueId());
+                return remaining == -1 ? "unlimited" : String.valueOf(remaining);
+                
+            case "waterbucket_max":
+                int maxUses = plugin.getConfigManager().getMaxWaterBucketsPerPlayer();
+                return maxUses == -1 ? "unlimited" : String.valueOf(maxUses);
+                
+            case "waterbucket_disabled":
+                return plugin.getConfigManager().areWaterBucketsDisabled() ? "true" : "false";
+                
             default:
                 return null;
         }

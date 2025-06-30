@@ -28,6 +28,22 @@ public class LavaEventCommand implements CommandExecutor, TabCompleter {
     
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && (args[0].equalsIgnoreCase("waterbuckets") || args[0].equalsIgnoreCase("wb"))) {
+            // Allow players to check their own water bucket usage
+            if (sender instanceof Player) {
+                Player player = (Player) sender;
+                if (args.length == 1) {
+                    // Show player's own usage
+                    if (!plugin.getGameManager().isEventActive()) {
+                        messageUtils.sendMessage(sender, "commands.waterbuckets.no-event");
+                        return true;
+                    }
+                    showPlayerWaterBucketUsage(sender, player);
+                    return true;
+                }
+            }
+        }
+        
         if (!sender.hasPermission("lavaevent.admin")) {
             messageUtils.sendMessage(sender, "commands.no-permission");
             return true;
@@ -52,6 +68,10 @@ public class LavaEventCommand implements CommandExecutor, TabCompleter {
                 break;
             case "setup":
                 handleSetupCommand(sender, args);
+                break;
+            case "waterbuckets":
+            case "wb":
+                handleWaterBucketsCommand(sender, args);
                 break;
             default:
                 sendHelpMessage(sender);
@@ -143,12 +163,112 @@ public class LavaEventCommand implements CommandExecutor, TabCompleter {
         }
     }
     
+    private void handleWaterBucketsCommand(CommandSender sender, String[] args) {
+        if (!plugin.getGameManager().isEventActive()) {
+            messageUtils.sendMessage(sender, "commands.waterbuckets.no-event");
+            return;
+        }
+        
+        if (args.length == 1) {
+            // Show overall water bucket status
+            showWaterBucketStatus(sender);
+        } else if (args.length == 2) {
+            // Show specific player's water bucket usage
+            String playerName = args[1];
+            Player target = Bukkit.getPlayer(playerName);
+            
+            if (target == null) {
+                Map<String, String> placeholders = MessageUtils.createPlaceholders("player", playerName);
+                messageUtils.sendMessage(sender, "errors.player-not-found", placeholders);
+                return;
+            }
+            
+            showPlayerWaterBucketUsage(sender, target);
+        } else {
+            messageUtils.sendMessage(sender, "commands.waterbuckets.usage");
+        }
+    }
+    
+    private void showWaterBucketStatus(CommandSender sender) {
+        int maxUses = plugin.getConfigManager().getMaxWaterBucketsPerPlayer();
+        boolean disabled = plugin.getConfigManager().areWaterBucketsDisabled();
+        
+        sender.sendMessage("§6§l=== Water Bucket Status ===");
+        
+        if (disabled) {
+            sender.sendMessage("§c§lWater buckets are DISABLED during this event!");
+            return;
+        }
+        
+        if (maxUses == -1) {
+            sender.sendMessage("§a§lUnlimited water bucket usage allowed");
+        } else {
+            sender.sendMessage("§e§lMax water buckets per player: §f" + maxUses);
+        }
+        
+        sender.sendMessage("");
+        sender.sendMessage("§6Current Player Usage:");
+        
+        boolean hasUsage = false;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (plugin.getGameManager().isPlayerAlive(player.getUniqueId()) || 
+                plugin.getGameManager().isPlayerSpectator(player.getUniqueId())) {
+                
+                int usage = plugin.getGameManager().getWaterBucketUsage(player.getUniqueId());
+                if (usage > 0 || maxUses != -1) {
+                    hasUsage = true;
+                    int remaining = plugin.getGameManager().getRemainingWaterBuckets(player.getUniqueId());
+                    String remainingText = remaining == -1 ? "∞" : String.valueOf(remaining);
+                    
+                    sender.sendMessage("§7- §b" + player.getName() + "§7: §f" + usage + 
+                                     (maxUses == -1 ? "" : "/" + maxUses) + 
+                                     " §7(§a" + remainingText + " remaining§7)");
+                }
+            }
+        }
+        
+        if (!hasUsage) {
+            sender.sendMessage("§7No water bucket usage recorded yet.");
+        }
+    }
+    
+    private void showPlayerWaterBucketUsage(CommandSender sender, Player target) {
+        int usage = plugin.getGameManager().getWaterBucketUsage(target.getUniqueId());
+        int remaining = plugin.getGameManager().getRemainingWaterBuckets(target.getUniqueId());
+        int maxUses = plugin.getConfigManager().getMaxWaterBucketsPerPlayer();
+        
+        sender.sendMessage("§6§l=== " + target.getName() + "'s Water Bucket Usage ===");
+        
+        if (plugin.getConfigManager().areWaterBucketsDisabled()) {
+            sender.sendMessage("§c§lWater buckets are DISABLED during this event!");
+            return;
+        }
+        
+        sender.sendMessage("§7Used: §f" + usage + (maxUses == -1 ? "" : "/" + maxUses));
+        
+        if (remaining == -1) {
+            sender.sendMessage("§7Remaining: §a∞ (Unlimited)");
+        } else {
+            sender.sendMessage("§7Remaining: §a" + remaining);
+            
+            if (remaining == 0) {
+                sender.sendMessage("§c§lThis player has reached their limit!");
+            }
+        }
+    }
+    
     private void sendHelpMessage(CommandSender sender) {
         sender.sendMessage("§6§l=== MCBLavaEvent Commands ===");
-        sender.sendMessage("§e/lavaevent start §7- Start a lava event");
-        sender.sendMessage("§e/lavaevent stop §7- Stop the current event");
-        sender.sendMessage("§e/lavaevent reload §7- Reload configuration files");
-        sender.sendMessage("§e/lavaevent setup <x> <z> <radius> §7- Setup event area");
+        
+        if (sender.hasPermission("lavaevent.admin")) {
+            sender.sendMessage("§e/lavaevent start §7- Start a lava event");
+            sender.sendMessage("§e/lavaevent stop §7- Stop the current event");
+            sender.sendMessage("§e/lavaevent reload §7- Reload configuration files");
+            sender.sendMessage("§e/lavaevent setup <x> <z> <radius> §7- Setup event area");
+            sender.sendMessage("§e/lavaevent waterbuckets [player] §7- Check water bucket usage status");
+        } else {
+            sender.sendMessage("§e/lavaevent waterbuckets §7- Check your water bucket usage");
+        }
         
         if (plugin.getGameManager().isEventActive()) {
             sender.sendMessage("");
@@ -167,7 +287,7 @@ public class LavaEventCommand implements CommandExecutor, TabCompleter {
         }
         
         if (args.length == 1) {
-            List<String> completions = Arrays.asList("start", "stop", "reload", "setup");
+            List<String> completions = Arrays.asList("start", "stop", "reload", "setup", "waterbuckets");
             return filterCompletions(completions, args[0]);
         }
         
@@ -187,6 +307,18 @@ public class LavaEventCommand implements CommandExecutor, TabCompleter {
         
         if (args.length == 4 && args[0].equalsIgnoreCase("setup")) {
             return Arrays.asList("100", "200", "500", "1000");
+        }
+        
+        if (args.length == 2 && (args[0].equalsIgnoreCase("waterbuckets") || args[0].equalsIgnoreCase("wb"))) {
+            // Tab complete player names for water bucket command
+            List<String> playerNames = new ArrayList<>();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (plugin.getGameManager().isPlayerAlive(player.getUniqueId()) || 
+                    plugin.getGameManager().isPlayerSpectator(player.getUniqueId())) {
+                    playerNames.add(player.getName());
+                }
+            }
+            return filterCompletions(playerNames, args[1]);
         }
         
         return new ArrayList<>();

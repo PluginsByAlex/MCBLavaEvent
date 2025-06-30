@@ -28,6 +28,12 @@ player:
   spectator-mode: "<gray>You are now in spectator mode. Watch the remaining players!"
   joined-late: "<yellow>You joined while an event is active. You are now in spectator mode."
   
+  # Water bucket messages
+  water-bucket:
+    used: "<blue>🪣 Water bucket used! <white>({used}/{max})</white> - <yellow>{remaining} remaining</yellow>"
+    limit-reached: "<red>🚫 You have reached your water bucket limit! No more water buckets can be used."
+    disabled: "<red>🚫 Water buckets are disabled during this event!"
+  
   # Status messages
   status:
     alive: "<green>Players alive: <white>{count}</white></green>"
@@ -51,6 +57,11 @@ commands:
   setup:
     success: "<green>Event area has been set up successfully!"
     usage: "<yellow>Usage: /lavaevent setup <center-x> <center-z> <radius>"
+  
+  # Water bucket commands
+  waterbuckets:
+    usage: "<yellow>Usage: /lavaevent waterbuckets [player]"
+    no-event: "<red>No lava event is currently running!"
 
 # Random events
 random-events:

@@ -107,4 +107,20 @@ public class ConfigManager {
     public String getEventWorld() {
         return config.getString("game.world", "world");
     }
+    
+    public int getLavaLevelBroadcastInterval() {
+        return config.getInt("game.lava-level-broadcast-interval", 10);
+    }
+    
+    public int getMaxWaterBucketsPerPlayer() {
+        return config.getInt("game.water-buckets.max-uses-per-player", 3);
+    }
+    
+    public boolean areWaterBucketsDisabled() {
+        return config.getBoolean("game.water-buckets.disabled", false);
+    }
+    
+    public boolean showWaterBucketUsageMessages() {
+        return config.getBoolean("game.water-buckets.show-usage-messages", true);
+    }
 } 

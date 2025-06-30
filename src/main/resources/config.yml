@@ -23,6 +23,18 @@ game:
   # Starting lava level (Y coordinate)
   starting-lava-level: -64
   
+  # Interval for broadcasting lava level updates (in blocks)
+  lava-level-broadcast-interval: 10
+  
+  # Water bucket settings
+  water-buckets:
+    # Maximum number of water buckets each player can use (set to -1 for unlimited)
+    max-uses-per-player: 3
+    # Whether to show a message when a player uses a water bucket
+    show-usage-messages: true
+    # Whether to prevent water bucket usage entirely during the event
+    disabled: false
+  
   # World border settings
   border:
     # Starting size of the world border
@@ -60,6 +72,16 @@ spectator:
   safe-teleport: true
   # Height to teleport spectators to
   spectator-height: 250
+
+# Effects settings
+effects:
+  # Lightning effect when player dies
+  death-lightning: true
+  # Sound when player dies (played to all players)
+  death-sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
+  # Win effects
+  win-fireworks: true
+  win-sound: "UI_TOAST_CHALLENGE_COMPLETE"
 
 # Debug settings
 debug:
